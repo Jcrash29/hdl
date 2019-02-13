@@ -341,6 +341,7 @@ add_interface_port m_src_axi_reset m_src_axi_aresetn reset_n Input 1
 
 ad_alt_intf clock   m_axis_aclk       input   1                       clk
 ad_alt_intf signal  m_axis_xfer_req   output  1                       xfer_req
+ad_alt_intf signal  m_axis_user       output  1                       user
 
 add_interface m_axis axi4stream start
 set_interface_property m_axis associatedClock if_m_axis_aclk

@@ -631,6 +631,7 @@ axi_dmac_transfer #(
   .m_axis_ready(m_axis_ready),
   .m_axis_valid(m_axis_valid),
   .m_axis_data(m_axis_data),
+  .m_axis_user(m_axis_user),
   .m_axis_last(m_axis_last),
   .m_axis_xfer_req(m_axis_xfer_req),
 
@@ -698,6 +699,5 @@ assign m_axis_keep = {DMA_DATA_WIDTH_DEST/8{1'b1}};
 assign m_axis_strb = {DMA_DATA_WIDTH_DEST/8{1'b1}};
 assign m_axis_id = 'h0;
 assign m_axis_dest = 'h0;
-assign m_axis_user = 'h0;
 
 endmodule
