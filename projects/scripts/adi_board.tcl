@@ -790,10 +790,7 @@ proc ad_cpu_interrupt {p_ps_index p_mb_index p_name} {
 ###################################################################################################
 
 proc stringtohex {str blocksize} {
-  binary scan $str H* hex
-  while {[string length $hex] < $blocksize * 2} {
-    append hex "0"
-  }
+  binary scan [format %-${blocksize}s $str] H* hex
   return $hex
 }
 
@@ -803,14 +800,14 @@ proc stringtohex {str blocksize} {
 proc sysid_gen_init_file {} {
   # time and date
   set thetime [clock seconds]
-  set timedate_string "time and date : [clock format $thetime -format %H:%M:%S] - [clock format $thetime -format %D]"
+  set timedate_string "time_and_date:[clock format $thetime -format %H:%M:%S]_[clock format $thetime -format %D]"
   set timedate_hex [stringtohex $timedate_string 64]
 
   # getting project name hex
   set projname_hex [stringtohex [current_project] 64]
 
 # custom string
-  set custom_string "custom string placeholder"
+  set custom_string "custom_string_placeholder"
   set custom_hex [stringtohex $custom_string 64]
 
 # git sha
