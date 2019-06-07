@@ -107,8 +107,15 @@ module axi_adrv9002_if #(
 
   output                  rx2_clk,
   output  reg [15:0]      rx2_data_i,
-  output  reg [15:0]      rx2_data_q
+  output  reg [15:0]      rx2_data_q,
 
+  output                  tx1_clk,
+  input       [15:0]      tx1_data_i,
+  input       [15:0]      tx1_data_q,
+
+  output                  tx2_clk,
+  input       [15:0]      tx2_data_i,
+  input       [15:0]      tx2_data_q
 );
 
   wire  [7:0] adc_1_data_i;
@@ -118,6 +125,11 @@ module axi_adrv9002_if #(
   wire  [7:0] adc_2_data_i;
   wire  [7:0] adc_2_data_q;
   wire  [7:0] adc_2_data_strobe;
+
+  // TODO
+  assign adc_rst = 1'b0;
+  assign dac_rst = 1'b0;
+
 
   adrv9002_rx
     #(.FPGA_TECHNOLOGY(FPGA_TECHNOLOGY),
@@ -192,6 +204,81 @@ module axi_adrv9002_if #(
       rx2_data_q <= {rx2_data_q[7:0], adc_2_data_q};
     end
   end
+
+  reg [7:0] dac_1_data_i;
+  reg [7:0] dac_1_data_q;
+  reg [7:0] dac_1_data_strb;
+
+  reg [7:0] dac_2_data_i;
+  reg [7:0] dac_2_data_q;
+  reg [7:0] dac_2_data_strb;
+
+ adrv9002_tx #(
+   .FPGA_TECHNOLOGY (FPGA_TECHNOLOGY)
+  ) tx1 (
+
+   .tx_dclk_out_n   (tx1_dclk_out_n  ),
+   .tx_dclk_out_p   (tx1_dclk_out_p  ),
+   .tx_dclk_in_n    (tx1_dclk_in_n   ),
+   .tx_dclk_in_p    (tx1_dclk_in_p   ),
+   .tx_idata_out_n  (tx1_idata_out_n ),
+   .tx_idata_out_p  (tx1_idata_out_p ),
+   .tx_qdata_out_n  (tx1_qdata_out_n ),
+   .tx_qdata_out_p  (tx1_qdata_out_p ),
+   .tx_strobe_out_n (tx1_strobe_out_n),
+   .tx_strobe_out_p (tx1_strobe_out_p),
+
+   .dac_rst     (dac_rst),
+   .dac_clk     (),
+   .dac_div_clk (dac_1_clk),
+
+   .dac_data_i    (dac_1_data_i),
+   .dac_data_q    (dac_1_data_q),
+   .dac_data_strb (dac_1_data_strb)
+  );
+
+ adrv9002_tx #(
+   .FPGA_TECHNOLOGY (FPGA_TECHNOLOGY)
+  ) tx2 (
+
+   .tx_dclk_out_n   (tx2_dclk_out_n  ),
+   .tx_dclk_out_p   (tx2_dclk_out_p  ),
+   .tx_dclk_in_n    (tx2_dclk_in_n   ),
+   .tx_dclk_in_p    (tx2_dclk_in_p   ),
+   .tx_idata_out_n  (tx2_idata_out_n ),
+   .tx_idata_out_p  (tx2_idata_out_p ),
+   .tx_qdata_out_n  (tx2_qdata_out_n ),
+   .tx_qdata_out_p  (tx2_qdata_out_p ),
+   .tx_strobe_out_n (tx2_strobe_out_n),
+   .tx_strobe_out_p (tx2_strobe_out_p),
+
+   .dac_rst     (dac_rst),
+   .dac_clk     (),
+   .dac_div_clk (dac_2_clk),
+
+   .dac_data_i    (dac_2_data_i),
+   .dac_data_q    (dac_2_data_q),
+   .dac_data_strb (dac_2_data_strb)
+  );
+
+  //TODO  replace with proper gearbox
+  assign tx1_clk = dac_1_clk;
+  assign tx2_clk = dac_2_clk;
+  reg tx1_data_sel = 'b0;
+  reg tx2_data_sel = 'b0;
+  always @(posedge tx1_clk) begin
+      tx1_data_sel <= ~tx1_data_sel;
+      dac_1_data_i <= tx1_data_sel ? tx1_data_i[7:0] : tx1_data_i[15:8];
+      dac_1_data_q <= tx1_data_sel ? tx1_data_q[7:0] : tx1_data_q[15:8];
+      dac_1_data_strb <= tx1_data_sel ? 'h00 : 'hff;
+  end
+  always @(posedge tx2_clk) begin
+      tx2_data_sel <= ~tx2_data_sel;
+      dac_2_data_i <= tx2_data_sel ? tx2_data_i[7:0] : tx2_data_i[15:8];
+      dac_2_data_q <= tx2_data_sel ? tx2_data_q[7:0] : tx2_data_q[15:8];
+      dac_2_data_strb <= tx1_data_sel ? 'h00 : 'hff;
+  end
+
 
 endmodule
 

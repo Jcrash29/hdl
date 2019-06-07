@@ -53,6 +53,15 @@ module axi_ad9002_core #(
   input [15:0]      rx2_data_i,
   input [15:0]      rx2_data_q,
 
+  // DAC interface
+  input                    tx1_clk,
+  output       [15:0]      tx1_data_i,
+  output       [15:0]      tx1_data_q,
+
+  input                    tx2_clk,
+  output       [15:0]      tx2_data_i,
+  output       [15:0]      tx2_data_q,
+
   // DMA interface
   output                  adc_1_enable,
   output                  adc_1_valid,
@@ -64,6 +73,15 @@ module axi_ad9002_core #(
   output      [31:0]      adc_2_data,
   input                   adc_2_dovf,
 
+  output                  dac_1_valid,
+  output                  dac_1_enable,
+  input       [31:0]      dac_1_data,
+  input                   dac_1_dunf,
+
+  output                  dac_2_valid,
+  output                  dac_2_enable,
+  input       [31:0]      dac_2_data,
+  input                   dac_2_dunf,
   // delay interface
 
   input                   delay_clk,
@@ -108,6 +126,14 @@ module axi_ad9002_core #(
   assign adc_2_valid = 1'b1;
   assign adc_2_data = {rx2_data_q,rx2_data_i};
 
+
+  // TODO  add DAC specific blocks 
+  assign {tx1_data_q,tx1_data_i} = dac_1_data;
+  assign {tx2_data_q,tx2_data_i} = dac_2_data;
+  assign dac_1_valid = 1'b1;
+  assign dac_2_valid = 1'b1;
+  assign dac_1_enable = 1'b1;
+  assign dac_2_enable = 1'b1;
 
   // processor read interface
 

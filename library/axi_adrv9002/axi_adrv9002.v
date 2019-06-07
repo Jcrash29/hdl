@@ -101,6 +101,18 @@ module axi_adrv9002 #(
   output      [31:0]      adc_2_data,
   input                   adc_2_dovf,
 
+  output                  dac_1_clk,
+  output                  dac_1_valid,
+  output                  dac_1_enable,
+  input       [31:0]      dac_1_data,
+  input                   dac_1_dunf,
+
+  output                  dac_2_clk,
+  output                  dac_2_valid,
+  output                  dac_2_enable,
+  input       [31:0]      dac_2_data,
+  input                   dac_2_dunf,
+
   // axi interface
   input                   s_axi_aclk,
   input                   s_axi_aresetn,
@@ -144,6 +156,10 @@ module axi_adrv9002 #(
   wire    [15:0]  rx2_data_i;
   wire    [15:0]  rx2_data_q;
 
+  wire    [15:0]  tx1_data_i;
+  wire    [15:0]  tx1_data_q;
+  wire    [15:0]  tx2_data_i;
+  wire    [15:0]  tx2_data_q;
 
   // internal clocks & resets
   wire            up_rstn;
@@ -224,9 +240,17 @@ module axi_adrv9002 #(
     .rx1_data_i (rx1_data_i),
     .rx1_data_q (rx1_data_q),
 
-    .rx2_clk (adc_2_clk),
+    .rx2_clk    (adc_2_clk),
     .rx2_data_i (rx2_data_i),
-    .rx2_data_q (rx2_data_q)
+    .rx2_data_q (rx2_data_q),
+
+    .tx1_clk    (dac_1_clk),
+    .tx1_data_i (tx1_data_i),
+    .tx1_data_q (tx1_data_q),
+
+    .tx2_clk    (dac_2_clk),
+    .tx2_data_i (tx2_data_i),
+    .tx2_data_q (tx2_data_q)
   );
 
   // common processor control
@@ -246,16 +270,35 @@ module axi_adrv9002 #(
     .rx2_data_i (rx2_data_i),
     .rx2_data_q (rx2_data_q),
 
+    //DAC interface
+    .tx1_clk    (dac_1_clk),
+    .tx1_data_i (tx1_data_i),
+    .tx1_data_q (tx1_data_q),
+
+    .tx2_clk    (dac_2_clk),
+    .tx2_data_i (tx2_data_i),
+    .tx2_data_q (tx2_data_q),
+
     // DMA interface
     .adc_1_enable (adc_1_enable),
-    .adc_1_valid  (adc_1_valid ),
-    .adc_1_data   (adc_1_data  ),
-    .adc_1_dovf   (adc_1_dovf  ),
+    .adc_1_valid  (adc_1_valid),
+    .adc_1_data   (adc_1_data),
+    .adc_1_dovf   (adc_1_dovf),
 
     .adc_2_enable (adc_2_enable),
-    .adc_2_valid  (adc_2_valid ),
-    .adc_2_data   (adc_2_data  ),
-    .adc_2_dovf   (adc_2_dovf  ),
+    .adc_2_valid  (adc_2_valid),
+    .adc_2_data   (adc_2_data),
+    .adc_2_dovf   (adc_2_dovf),
+
+    .dac_1_valid  (dac_1_valid),
+    .dac_1_enable (dac_1_enable),
+    .dac_1_data   (dac_1_data),
+    .dac_1_dunf   (dac_1_dunf),
+
+    .dac_2_valid  (dac_2_valid),
+    .dac_2_enable (dac_2_enable),
+    .dac_2_data   (dac_2_data),
+    .dac_2_dunf   (dac_2_dunf),
 
     .delay_clk (delay_clk),
 
