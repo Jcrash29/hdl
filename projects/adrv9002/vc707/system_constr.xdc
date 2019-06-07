@@ -82,8 +82,8 @@ set_property  -dict {PACKAGE_PIN L29 IOSTANDARD LVCMOS18}  [get_ports vadj_test_
 
 # clocks
 
-#create_clock -name tx_ref_clk     -period  4.00 [get_ports ref_clk0_p]
-#create_clock -name rx_ref_clk     -period  4.00 [get_ports ref_clk1_p]
-#create_clock -name tx_div_clk     -period  4.00 [get_pins i_system_wrapper/system_i/util_adrv9009_xcvr/inst/i_xch_0/i_gthe4_channel/TXOUTCLK]
-#create_clock -name rx_div_clk     -period  4.00 [get_pins i_system_wrapper/system_i/util_adrv9009_xcvr/inst/i_xch_0/i_gthe4_channel/RXOUTCLK]
-#create_clock -name rx_os_div_clk  -period  4.00 [get_pins i_system_wrapper/system_i/util_adrv9009_xcvr/inst/i_xch_2/i_gthe4_channel/RXOUTCLK]
+create_clock -name rx1_dclk_out   -period  2.00 [get_ports rx1_dclk_out_p]
+create_clock -name rx2_dclk_out   -period  2.00 [get_ports rx2_dclk_out_p]
+create_clock -name tx1_dclk_out   -period  2.00 [get_ports tx1_dclk_out_p]
+create_clock -name tx2_dclk_out   -period  2.00 [get_ports tx2_dclk_out_p]
+
