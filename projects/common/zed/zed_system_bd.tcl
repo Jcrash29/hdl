@@ -261,9 +261,22 @@ ad_connect  sys_cpu_resetn     axi_i2s_adi/DMA_REQ_RX_RSTN
 # system id
 
 ad_ip_instance axi_sysid axi_sysid_0
-sysid_gen_init_file
-ad_ip_parameter axi_sysid_0 CONFIG.PATH_TO_FILE "[pwd]/mem_init.txt"
+ad_ip_instance sysid_rom rom_sys_0
+ad_ip_instance sysid_rom rom_pr_0
+
+ad_connect  axi_sysid_0/rom_addr   rom_sys_0/rom_addr
+ad_connect  axi_sysid_0/sys_rom_data   rom_sys_0/rom_data
+ad_connect  axi_sysid_0/rom_addr   rom_pr_0/rom_addr
+ad_connect  axi_sysid_0/pr_rom_data   rom_pr_0/rom_data
+
+sysid_gen_sys_init_file
+sysid_gen_pr_init_file
+
 ad_ip_parameter axi_sysid_0 CONFIG.ROM_ADDR_BITS 6
+ad_ip_parameter rom_sys_0 CONFIG.PATH_TO_FILE "[pwd]/mem_init_sys.txt"
+ad_ip_parameter rom_sys_0 CONFIG.ROM_ADDR_BITS 6
+ad_ip_parameter rom_pr_0 CONFIG.PATH_TO_FILE "[pwd]/mem_init_pr.txt"
+ad_ip_parameter rom_pr_0 CONFIG.ROM_ADDR_BITS 4
 
 # interrupts
 

@@ -797,17 +797,17 @@ proc stringtohex {str blocksize} {
 ###################################################################################################
 ###################################################################################################
 
-proc sysid_gen_init_file {} {
+proc sysid_gen_sys_init_file {} {
   # time and date
   set thetime [clock seconds]
   set timedate_string "time_and_date:[clock format $thetime -format %H:%M:%S]_[clock format $thetime -format %D]"
-  set timedate_hex [stringtohex $timedate_string 64]
+  set timedate_hex [stringtohex $thetime 64]
 
   # getting project name hex
   set projname_hex [stringtohex [current_project] 64]
 
 # custom string
-  set custom_string "custom_string_placeholder"
+  set custom_string "system_rom"
   set custom_hex [stringtohex $custom_string 64]
 
 # git sha
@@ -819,15 +819,43 @@ proc sysid_gen_init_file {} {
   append mem_hex $timedate_hex $projname_hex $custom_hex $gitsha_hex
 
 # creating file
-  set mem_file [open "mem_init.txt" "w"]
+  set sys_mem_file [open "mem_init_sys.txt" "w"]
 
 # writting 32 bits to each line
   for {set i 0} {$i < [string length $mem_hex]} {incr i} {
     if { ($i+1) % 8 == 0} {
-      puts $mem_file [string index $mem_hex $i]
+      puts $sys_mem_file [string index $mem_hex $i]
     } else {
-      puts -nonewline $mem_file [string index $mem_hex $i]
+      puts -nonewline $sys_mem_file [string index $mem_hex $i]
     }
   }
-  close $mem_file
+  close $sys_mem_file
+}
+
+
+###################################################################################################
+###################################################################################################
+
+proc sysid_gen_pr_init_file {} {
+
+# custom string
+  set custom_string "secondary_pr_rom"
+  set custom_hex [stringtohex $custom_string 64]
+
+# merge components
+  set mem_hex {}
+  append mem_hex $custom_hex
+
+# creating file
+  set pr_mem_file [open "mem_init_pr.txt" "w"]
+
+# writting 32 bits to each line
+  for {set i 0} {$i < [string length $mem_hex]} {incr i} {
+    if { ($i+1) % 8 == 0} {
+      puts $pr_mem_file [string index $mem_hex $i]
+    } else {
+      puts -nonewline $pr_mem_file [string index $mem_hex $i]
+    }
+  }
+  close $pr_mem_file
 }

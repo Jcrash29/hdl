@@ -2,40 +2,41 @@
 
 module sys_id #(
   parameter ID = 0,
-  parameter PATH_TO_FILE = "path_to_mem_init_file",
   parameter ROM_WIDTH = 32,
-  parameter ROM_ADDR_BITS = 6)(
+  parameter ROM_ADDR_BITS = 6 )(
 
    //axi interface
   input           s_axi_aclk,
   input           s_axi_aresetn,
   input           s_axi_awvalid,
   input   [15:0]  s_axi_awaddr,
-  input   [ 2:0]  s_axi_awprot,
+  input   [2:0]   s_axi_awprot,
   output          s_axi_awready,
   input           s_axi_wvalid,
   input   [31:0]  s_axi_wdata,
-  input   [ 3:0]  s_axi_wstrb,
+  input   [3:0]   s_axi_wstrb,
   output          s_axi_wready,
   output          s_axi_bvalid,
-  output  [ 1:0]  s_axi_bresp,
+  output  [1:0]   s_axi_bresp,
   input           s_axi_bready,
   input           s_axi_arvalid,
   input   [15:0]  s_axi_araddr,
-  input   [ 2:0]  s_axi_arprot,
+  input   [2:0]   s_axi_arprot,
   output          s_axi_arready,
   output          s_axi_rvalid,
-  output  [ 1:0]  s_axi_rresp,
+  output  [1:0]   s_axi_rresp,
   output  [31:0]  s_axi_rdata,
-  input           s_axi_rready);
+  input           s_axi_rready,
+
+  input   [ROM_WIDTH-1:0]           sys_rom_data,
+  input   [ROM_WIDTH-1:0]           pr_rom_data,
+  output  [ROM_ADDR_BITS-1:0]       rom_addr);
 
 localparam          AXI_ADDRESS_WIDTH    = 8;
 localparam  [31:0]  CORE_VERSION         = {16'h0001,     /* MAJOR */
                                               8'h00,      /* MINOR */
                                               8'h00};     /* PATCH */
 localparam  [31:0]  CORE_MAGIC           = 32'h53594944;  // SYID
-
-(* rom_style = "distributed" *) reg [ROM_WIDTH-1:0] sys_id_rom [(2**ROM_ADDR_BITS)-1:0];
 
 reg                             up_wack = 'd0;
 reg   [31:0]                    up_rdata_s = 'd0;
@@ -45,6 +46,7 @@ reg   [ROM_WIDTH-1:0]           sys_id_rom_out = 'h0;
 reg   [ROM_ADDR_BITS-1:0]       sys_id_rom_addr = 'h0;
 reg   [ROM_ADDR_BITS-1:0]       up_sys_id_rom_addr = 'h0;
 reg                             rom_read_done = 'h0;
+reg                             rom_cs = 'h0;
 
 wire                            up_clk;
 wire                            up_rstn;
@@ -56,9 +58,7 @@ wire  [31:0]                    up_wdata_s;
 
 assign up_clk = s_axi_aclk;
 assign up_rstn = s_axi_aresetn;
-
-initial
-  $readmemh(PATH_TO_FILE, sys_id_rom, 0, (2**ROM_ADDR_BITS)-1);
+assign rom_addr = sys_id_rom_addr;
 
 up_axi #(
   .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH))
@@ -104,7 +104,13 @@ always @(posedge up_clk) begin
         8'h01: up_rdata_s <= ID;
         8'h02: up_rdata_s <= up_scratch;
         8'h03: up_rdata_s <= CORE_MAGIC;
-        8'h21: up_rdata_s <= sys_id_rom [sys_id_rom_addr];
+        8'h21: begin
+          if (rom_cs) begin
+            up_rdata_s <= pr_rom_data;
+          end else begin
+            up_rdata_s <= sys_rom_data;
+          end
+        end
         default: begin
           up_rdata_s <= 'h0;
         end
@@ -128,9 +134,7 @@ always @(posedge up_clk) begin
     end
     if ((up_wreq_s == 1'b1) && (up_waddr_s == 8'h22)) begin
       sys_id_rom_addr <= up_wdata_s;
-    //ROM address is automatically incremented after each ROM read
-    end else if ((up_rreq_s == 1'b1) && (up_raddr_s == 8'h21)) begin
-      sys_id_rom_addr <= sys_id_rom_addr + 'h1;
+      rom_cs <= up_wdata_s [31];
     end
   end
 end
