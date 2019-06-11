@@ -1,7 +1,6 @@
 `timescale 1ns / 1ps
 
 module sys_id #(
-  parameter ID = 0,
   parameter ROM_WIDTH = 32,
   parameter ROM_ADDR_BITS = 6 )(
 
@@ -101,7 +100,7 @@ always @(posedge up_clk) begin
     if (up_rreq_s == 1'b1) begin
       case (up_raddr_s)
         8'h00: up_rdata_s <= CORE_VERSION;
-        8'h01: up_rdata_s <= ID;
+        8'h01: up_rdata_s <= 0;
         8'h02: up_rdata_s <= up_scratch;
         8'h03: up_rdata_s <= CORE_MAGIC;
         8'h21: begin

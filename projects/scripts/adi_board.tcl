@@ -786,24 +786,30 @@ proc ad_cpu_interrupt {p_ps_index p_mb_index p_name} {
   }
 }
 
-###################################################################################################
-###################################################################################################
+## Converts a string input to hex and adds whitespace as padding to obtain the size defined by 
+# the blocksize parameter.
+#
+# \param[str] - string input
+# \param[blocksize] - size of hex output
+#
+# \return - hex
+#
 
 proc stringtohex {str blocksize} {
   binary scan [format %-${blocksize}s $str] H* hex
   return $hex
 }
 
-###################################################################################################
-###################################################################################################
+## Generates a file used for initializing the system ROM.
+#
 
 proc sysid_gen_sys_init_file {} {
-  # time and date
+# time and date
   set thetime [clock seconds]
   set timedate_string "time_and_date:[clock format $thetime -format %H:%M:%S]_[clock format $thetime -format %D]"
   set timedate_hex [stringtohex $thetime 64]
 
-  # getting project name hex
+# getting project name hex
   set projname_hex [stringtohex [current_project] 64]
 
 # custom string
@@ -832,9 +838,8 @@ proc sysid_gen_sys_init_file {} {
   close $sys_mem_file
 }
 
-
-###################################################################################################
-###################################################################################################
+## Generates a file used for initializing the PR ROM.
+#
 
 proc sysid_gen_pr_init_file {} {
 
@@ -842,19 +847,15 @@ proc sysid_gen_pr_init_file {} {
   set custom_string "secondary_pr_rom"
   set custom_hex [stringtohex $custom_string 64]
 
-# merge components
-  set mem_hex {}
-  append mem_hex $custom_hex
-
 # creating file
   set pr_mem_file [open "mem_init_pr.txt" "w"]
 
 # writting 32 bits to each line
-  for {set i 0} {$i < [string length $mem_hex]} {incr i} {
+  for {set i 0} {$i < [string length $custom_hex]} {incr i} {
     if { ($i+1) % 8 == 0} {
-      puts $pr_mem_file [string index $mem_hex $i]
+      puts $pr_mem_file [string index $custom_hex $i]
     } else {
-      puts -nonewline $pr_mem_file [string index $mem_hex $i]
+      puts -nonewline $pr_mem_file [string index $custom_hex $i]
     }
   }
   close $pr_mem_file
