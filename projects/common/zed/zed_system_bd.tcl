@@ -269,8 +269,11 @@ ad_connect  axi_sysid_0/sys_rom_data   rom_sys_0/rom_data
 ad_connect  axi_sysid_0/rom_addr   rom_pr_0/rom_addr
 ad_connect  axi_sysid_0/pr_rom_data   rom_pr_0/rom_data
 
-sysid_gen_sys_init_file
-sysid_gen_pr_init_file
+set sys_cstring "sys rom custom string placeholder"
+sysid_gen_sys_init_file $sys_cstring
+
+set pr_cstring "pr rom custom string placeholder"
+sysid_gen_pr_init_file $pr_cstring
 
 ad_ip_parameter axi_sysid_0 CONFIG.ROM_ADDR_BITS 6
 ad_ip_parameter rom_sys_0 CONFIG.PATH_TO_FILE "[pwd]/mem_init_sys.txt"

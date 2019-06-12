@@ -786,7 +786,7 @@ proc ad_cpu_interrupt {p_ps_index p_mb_index p_name} {
   }
 }
 
-## Converts a string input to hex and adds whitespace as padding to obtain the size defined by 
+## Converts a string input to hex and adds whitespace as padding to obtain the size defined by
 # the blocksize parameter.
 #
 # \param[str] - string input
@@ -802,8 +802,10 @@ proc stringtohex {str blocksize} {
 
 ## Generates a file used for initializing the system ROM.
 #
+#
 
-proc sysid_gen_sys_init_file {} {
+proc sysid_gen_sys_init_file {custom_string} {
+
 # time and date
   set thetime [clock seconds]
   set timedate_string "time_and_date:[clock format $thetime -format %H:%M:%S]_[clock format $thetime -format %D]"
@@ -813,7 +815,6 @@ proc sysid_gen_sys_init_file {} {
   set projname_hex [stringtohex [current_project] 64]
 
 # custom string
-  set custom_string "system_rom"
   set custom_hex [stringtohex $custom_string 64]
 
 # git sha
@@ -840,11 +841,10 @@ proc sysid_gen_sys_init_file {} {
 
 ## Generates a file used for initializing the PR ROM.
 #
+#
 
-proc sysid_gen_pr_init_file {} {
+proc sysid_gen_pr_init_file {custom_string} {
 
-# custom string
-  set custom_string "secondary_pr_rom"
   set custom_hex [stringtohex $custom_string 64]
 
 # creating file
