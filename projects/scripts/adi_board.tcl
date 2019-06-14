@@ -802,6 +802,7 @@ proc stringtohex {str blocksize} {
 
 ## Generates a file used for initializing the system ROM.
 #
+# \param[custom_string] - string input
 #
 
 proc sysid_gen_sys_init_file {custom_string} {
@@ -841,6 +842,7 @@ proc sysid_gen_sys_init_file {custom_string} {
 
 ## Generates a file used for initializing the PR ROM.
 #
+# \param[custom_string] - string input
 #
 
 proc sysid_gen_pr_init_file {custom_string} {
