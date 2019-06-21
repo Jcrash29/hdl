@@ -819,8 +819,13 @@ proc sysid_gen_sys_init_file {custom_string} {
   set custom_hex [stringtohex $custom_string 64]
 
 # git sha
-  set gitsha_string [exec git rev-parse HEAD]
-  set gitsha_hex [stringtohex $gitsha_string 64]
+set no_git_err "fatal: not a git repository"
+if {[catch {exec git rev-parse HEAD} gitsha_string]} {
+	if [expr [string match *$no_git_err* $gitsha_string] == 1] {
+		set gitsha_string $no_git_err
+	}
+} 
+set gitsha_hex [stringtohex $gitsha_string 64]
 
 # merge components
   set mem_hex {}
