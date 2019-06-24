@@ -32,6 +32,8 @@ source $ad_hdl_dir/library/jesd204/scripts/jesd204.tcl
 # ad9371
 
 create_bd_port -dir I dac_fifo_bypass
+create_bd_port -dir I adc_fir_filter_bypass
+create_bd_port -dir I dac_fir_filter_bypass
 
 # dac peripherals
 
@@ -57,6 +59,10 @@ ad_ip_instance util_upack2 util_ad9371_tx_upack [list \
   SAMPLES_PER_CHANNEL $TX_SAMPLES_PER_CHANNEL \
   SAMPLE_DATA_WIDTH $TX_SAMPLE_WIDTH \
 ]
+
+set interpolation_rate 8
+ad_add_interpolation_filter "tx_fir_interpolator" $interpolation_rate \
+                  $TX_NUM_OF_CONVERTERS 2 {122.88} {15.36}
 
 adi_tpl_jesd204_tx_create tx_ad9371_tpl_core $TX_NUM_OF_LANES \
                                              $TX_NUM_OF_CONVERTERS \
@@ -119,6 +125,10 @@ ad_ip_parameter axi_ad9371_rx_dma CONFIG.ASYNC_CLK_SRC_DEST 1
 ad_ip_parameter axi_ad9371_rx_dma CONFIG.ASYNC_CLK_REQ_SRC 1
 ad_ip_parameter axi_ad9371_rx_dma CONFIG.DMA_2D_TRANSFER 0
 ad_ip_parameter axi_ad9371_rx_dma CONFIG.DMA_DATA_WIDTH_SRC [expr 32*$RX_NUM_OF_LANES]
+
+set decimation_rate 8
+ad_add_decimation_filter "rx_fir_decimator" $decimation_rate \
+                  $RX_NUM_OF_CONVERTERS 1 {122.88} {122.88}
 
 # adc-os peripherals
 
@@ -229,15 +239,25 @@ ad_connect  axi_ad9371_tx_jesd/tx_data tx_ad9371_tpl_core/link
 ad_connect  axi_ad9371_tx_clkgen/clk_0 util_ad9371_tx_upack/clk
 ad_connect  ad9371_tx_device_clk_rstgen/peripheral_reset util_ad9371_tx_upack/reset
 
-ad_connect  tx_ad9371_tpl_core/dac_valid_0 util_ad9371_tx_upack/fifo_rd_en
-for {set i 0} {$i < $TX_NUM_OF_CONVERTERS} {incr i} {
-  ad_connect  util_ad9371_tx_upack/fifo_rd_data_$i tx_ad9371_tpl_core/dac_data_$i
-  ad_connect  tx_ad9371_tpl_core/dac_enable_$i  util_ad9371_tx_upack/enable_$i
-}
-
 ad_connect  axi_ad9371_tx_clkgen/clk_0 axi_ad9371_dacfifo/dac_clk
 ad_connect  ad9371_tx_device_clk_rstgen/peripheral_reset axi_ad9371_dacfifo/dac_rst
 
+ad_connect tx_fir_interpolator/aclk axi_ad9371_tx_clkgen/clk_0
+
+for {set i 0} {$i < $TX_NUM_OF_CONVERTERS} {incr i} {
+  ad_connect  tx_ad9371_tpl_core/dac_enable_$i  tx_fir_interpolator/enable_dac_$i
+  ad_connect  tx_ad9371_tpl_core/dac_valid_$i  tx_fir_interpolator/dac_valid_$i
+
+  ad_connect  util_ad9371_tx_upack/fifo_rd_data_$i  tx_fir_interpolator/data_in_${i}
+  ad_connect  util_ad9371_tx_upack/enable_$i  tx_fir_interpolator/enable_out_${i}
+
+  ad_connect  tx_fir_interpolator/data_out_${i}  tx_ad9371_tpl_core/dac_data_$i
+}
+
+ad_connect  tx_fir_interpolator/valid_out_0 util_ad9371_tx_upack/fifo_rd_en
+ad_connect  tx_fir_interpolator/bypass dac_fir_filter_bypass
+
+#######################################
 # TODO: Add streaming AXI interface for DAC FIFO
 ad_connect  util_ad9371_tx_upack/s_axis_valid VCC
 ad_connect  util_ad9371_tx_upack/s_axis_ready axi_ad9371_dacfifo/dac_valid
@@ -263,12 +283,21 @@ ad_connect  axi_ad9371_rx_jesd/rx_data_tvalid rx_ad9371_tpl_core/link_valid
 ad_connect  axi_ad9371_rx_clkgen/clk_0 util_ad9371_rx_cpack/clk
 ad_connect  ad9371_rx_device_clk_rstgen/peripheral_reset util_ad9371_rx_cpack/reset
 
-ad_connect rx_ad9371_tpl_core/adc_valid_0 util_ad9371_rx_cpack/fifo_wr_en
+ad_connect rx_fir_decimator/aclk axi_ad9371_rx_clkgen/clk_0
+
 for {set i 0} {$i < $RX_NUM_OF_CONVERTERS} {incr i} {
-  ad_connect  rx_ad9371_tpl_core/adc_enable_$i util_ad9371_rx_cpack/enable_$i
-  ad_connect  rx_ad9371_tpl_core/adc_data_$i util_ad9371_rx_cpack/fifo_wr_data_$i
+  ad_connect  rx_ad9371_tpl_core/adc_valid_$i rx_fir_decimator/valid_in_$i
+  ad_connect  rx_ad9371_tpl_core/adc_enable_$i rx_fir_decimator/enable_in_$i
+  ad_connect  rx_ad9371_tpl_core/adc_data_$i rx_fir_decimator/data_in_${i}
+
+  ad_connect  rx_fir_decimator/enable_out_$i util_ad9371_rx_cpack/enable_$i
+  ad_connect  rx_fir_decimator/data_out_${i} util_ad9371_rx_cpack/fifo_wr_data_$i
 }
+
+ad_connect  rx_fir_decimator/valid_out_0 util_ad9371_rx_cpack/fifo_wr_en
 ad_connect  rx_ad9371_tpl_core/adc_dovf util_ad9371_rx_cpack/fifo_wr_overflow
+
+ad_connect rx_fir_decimator/bypass adc_fir_filter_bypass
 
 ad_connect  axi_ad9371_rx_clkgen/clk_0 axi_ad9371_rx_dma/fifo_wr_clk
 ad_connect  util_ad9371_rx_cpack/packed_fifo_wr axi_ad9371_rx_dma/fifo_wr
