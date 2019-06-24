@@ -335,6 +335,219 @@ proc ad_xcvrpll {m_src m_dst} {
   }
 }
 
+###################################################################################################
+###################################################################################################
+##
+# ad_add_fir_filter - Creates a subsystem based on the Xilinx fir_compiler IP.
+# \param[name] - Subsystem name
+# \param[filter_rate] - Filter rate. E.g., 8
+# \param[n_chan] - Number of channels to filter
+# \param[parallel_paths] - Number of paralell paths. For scenarios where
+# the sampling rate is x times the core clock.
+# \param[core_clk_mhz] - Core clock in MHz
+# \param[sampl_freq_mhz] - Sampling frequency in MHz
+proc ad_add_decimation_filter {name filter_rate n_chan parallel_paths \
+                              core_clk_mhz sampl_freq_mhz} {
+  global ad_hdl_dir
+
+  create_bd_cell -type hier $name
+  set filter_name "fir_decimation"
+
+  set coe_file "$ad_hdl_dir/library/util_fir_int/coefile_int.coe"
+
+  create_bd_pin -dir I $name/aclk
+  create_bd_pin -dir I $name/bypass
+
+    # Adding the ad_bus_axis.v file in the project fileset sources_1 will not work
+    add_files -norecurse $ad_hdl_dir/library/common/ad_bus_mux.v
+
+
+  # add filter instances for n channels
+  for {set i 0} {$i < $n_chan} {incr i} {
+    ad_ip_instance fir_compiler $name/${filter_name}_${i} [ list \
+      Decimation_Rate $filter_rate \
+      Filter_Type "Decimation" \
+      Interpolation_Rate 1 \
+      Number_Paths $parallel_paths \
+      Clock_Frequency $core_clk_mhz \
+      Sample_Frequency $sampl_freq_mhz \
+      CoefficientSource COE_File \
+      Coefficient_File $coe_file \
+      Coefficient_Fractional_Bits 0 \
+      Data_Fractional_Bits 15 \
+      Coefficient_Sets 1 \
+      Coefficient_Sign Signed \
+      Coefficient_Structure Inferred \
+      Coefficient_Width 16 \
+      ColumnConfig 5 \
+      Filter_Architecture Systolic_Multiply_Accumulate \
+      Number_Channels 1 \
+      Output_Rounding_Mode Symmetric_Rounding_to_Zero \
+      Output_Width 16 \
+      Quantization Integer_Coefficients \
+      RateSpecification Frequency_Specification \
+      Zero_Pack_Factor 1
+    ]
+
+    ad_connect $name/aclk $name/${filter_name}_${i}/aclk
+
+    create_bd_pin -dir I $name/valid_in_$i
+    create_bd_pin -dir I $name/enable_in_$i
+    create_bd_pin -dir I -from 15 -to 0 $name/data_in_$i
+    create_bd_pin -dir O $name/valid_out_$i
+    create_bd_pin -dir O $name/enable_out_$i
+    create_bd_pin -dir O -from 15 -to 0 $name/data_out_$i
+
+    if { $parallel_paths > 1 } {
+      # define the concatenation module configuration
+      set concat_config ""
+      lappend concat_config NUM_PORTS
+      lappend concat_config $parallel_paths
+      for {set j 0} {$j < $parallel_paths} {incr j} {
+        lappend concat_config IN${j}_WIDTH
+        lappend concat_config 16
+      }
+      # add the concatenation module
+      ad_ip_instance xlconcat $name/concat_$i $concat_config
+
+      for {set j 0} {$j < $parallel_paths} {incr j} {
+        ad_connect $name/concat_${i}/In${j} $name/data_in_$i
+      }
+
+      ad_connect $name/${filter_name}_${i}/s_axis_data_tdata $name/concat_${i}/dout
+    } else {
+      ad_connect $name/${filter_name}_${i}/s_axis_data_tdata $name/data_in_$i
+    }
+
+    ad_connect $name/${filter_name}_${i}/s_axis_data_tvalid $name/valid_in_$i
+
+    create_bd_cell -type module -reference ad_bus_mux $name/out_mux_$i
+
+    ad_connect $name/out_mux_${i}/enable_in_0  $name/enable_in_$i
+
+    ad_connect $name/valid_out_$i  $name/out_mux_${i}/valid_out
+    ad_connect $name/enable_out_$i  $name/out_mux_${i}/enable_out
+    ad_connect $name/data_out_$i  $name/out_mux_${i}/data_out
+
+    ad_connect $name/enable_in_$i  $name/out_mux_${i}/enable_in_1
+    ad_connect $name/valid_in_$i  $name/out_mux_${i}/valid_in_1
+    ad_connect $name/data_in_$i  $name/out_mux_${i}/data_in_1
+
+    ad_connect $name/${filter_name}_${i}/m_axis_data_tvalid  $name/out_mux_${i}/valid_in_0
+    ad_connect $name/${filter_name}_${i}/m_axis_data_tdata  $name/out_mux_${i}/data_in_0
+
+    ad_connect $name/out_mux_${i}/select_path  $name/bypass
+  }
+}
+
+
+###################################################################################################
+###################################################################################################
+##
+# ad_add_interpolation_filter - Creates a subsystem based on the Xilinx fir_compiler IP.
+# \param[name] - Subsystem name
+# \param[filter_rate] - Filter rate. E.g., 8
+# \param[n_chan] - Number of channels to filter
+# \param[parallel_paths] - Number of paralell paths. For scenarios where
+# the sampling rate is x times the core clock.
+# \param[core_clk_mhz] - Core clock in MHz
+# \param[sampl_freq_mhz] - Sampling frequency in MHz
+proc ad_add_interpolation_filter {name filter_rate n_chan parallel_paths \
+                                 core_clk_mhz sampl_freq_mhz} {
+  global ad_hdl_dir
+
+  create_bd_cell -type hier $name
+  set filter_name "fir_interpolation"
+
+  set coe_file "$ad_hdl_dir/library/util_fir_int/coefile_int.coe"
+
+  add_files -norecurse $ad_hdl_dir/library/common/ad_bus_mux.v
+  add_files -norecurse $ad_hdl_dir/library/common/util_pulse_gen.v
+
+  create_bd_pin -dir I $name/aclk
+  create_bd_pin -dir I $name/bypass
+
+  # add filter instances for n channels
+  for {set i 0} {$i < $n_chan} {incr i} {
+    ad_ip_instance fir_compiler $name/${filter_name}_${i} [ list \
+      Decimation_Rate 1 \
+      Filter_Type "Interpolation" \
+      Interpolation_Rate $filter_rate \
+      Number_Paths $parallel_paths \
+      Clock_Frequency $core_clk_mhz \
+      Sample_Frequency $sampl_freq_mhz \
+      CoefficientSource COE_File \
+      Coefficient_File $coe_file \
+      Coefficient_Fractional_Bits 0 \
+      Data_Fractional_Bits 15 \
+      Coefficient_Sets 1 \
+      Coefficient_Sign Signed \
+      Coefficient_Structure Inferred \
+      Coefficient_Width 16 \
+      ColumnConfig 5 \
+      Filter_Architecture Systolic_Multiply_Accumulate \
+      Number_Channels 1 \
+      Output_Rounding_Mode Symmetric_Rounding_to_Zero \
+      Output_Width 16 \
+      Quantization Integer_Coefficients \
+      RateSpecification Frequency_Specification \
+      Zero_Pack_Factor 1
+    ]
+
+    ad_connect $name/aclk $name/${filter_name}_${i}/aclk
+
+    create_bd_pin -dir I $name/dac_valid_$i
+    create_bd_pin -dir I $name/enable_dac_$i
+    create_bd_pin -dir O $name/valid_out_$i
+    create_bd_pin -dir O $name/enable_out_$i
+    create_bd_pin -dir I -from 15 -to 0 $name/data_in_$i
+    create_bd_pin -dir O -from 15 -to 0 $name/data_out_$i
+
+    # Create pulse generator for ready/valid signals - This is required because
+    # there is only one clock domain for the slave and master data paths.
+    # The generator will give a 1 clock cycle pulse every N clock cycle periods.
+    # N = data  rate.
+
+    create_bd_cell -type module -reference util_pulse_gen $name/rate_gen_${i}
+    set_property -dict [list \
+      CONFIG.PULSE_WIDTH {1} \
+      CONFIG.PULSE_PERIOD [expr $filter_rate -1]] [get_bd_cells $name/rate_gen_${i}]
+
+    ad_connect  $name/aclk  $name/rate_gen_${i}/clk
+    ad_connect  $name/enable_dac_$i  $name/rate_gen_${i}/rstn
+    ad_connect  $name/rate_gen_${i}/pulse_width  GND
+    ad_connect  $name/rate_gen_${i}/pulse_period  GND
+    ad_connect  $name/rate_gen_${i}/load_config  GND
+    ad_connect  $name/rate_gen_${i}/pulse  $name/${filter_name}_${i}/s_axis_data_tvalid
+
+    ad_connect  $name/${filter_name}_${i}/s_axis_data_tdata  $name/data_in_$i
+
+    # create/connect the muxes
+
+    create_bd_cell -type module -reference ad_bus_mux $name/out_mux_$i
+    set_property -dict [list \
+      CONFIG.CH_DW [expr 16 * $parallel_paths]] [get_bd_cells $name/out_mux_$i]
+
+    ad_connect $name/rate_gen_${i}/pulse  $name/out_mux_${i}/valid_in_0
+    ad_connect $name/data_in_$i  $name/out_mux_${i}/data_in_1
+    ad_connect $name/${filter_name}_${i}/m_axis_data_tdata  $name/out_mux_${i}/data_in_0
+
+    ad_connect $name/dac_valid_$i  $name/out_mux_${i}/valid_in_1
+
+    ad_connect $name/out_mux_${i}/enable_in_0  $name/enable_dac_$i
+    ad_connect $name/out_mux_${i}/enable_in_1  $name/enable_dac_$i
+    ad_connect $name/bypass  $name/out_mux_${i}/select_path
+
+    ad_connect $name/enable_out_$i  $name/out_mux_${i}/enable_out
+
+    ad_connect $name/valid_out_$i  $name/out_mux_${i}/valid_out
+    ad_connect $name/data_out_$i  $name/out_mux_${i}/data_out
+  }
+}
+
+###################################################################################################
+###################################################################################################
+
 ## Create an memory mapped interface connection to a MIG or PS7/8 IP, using a
 #  HP0 high speed interface in case of PSx.
 #
