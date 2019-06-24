@@ -32,6 +32,8 @@ source $ad_hdl_dir/library/jesd204/scripts/jesd204.tcl
 # adrv9009
 
 create_bd_port -dir I dac_fifo_bypass
+create_bd_port -dir I adc_fir_filter_bypass
+create_bd_port -dir I dac_fir_filter_bypass
 
 # dac peripherals
 
@@ -56,6 +58,10 @@ ad_ip_instance util_upack2 util_adrv9009_tx_upack [list \
   SAMPLES_PER_CHANNEL $TX_SAMPLES_PER_CHANNEL \
   SAMPLE_DATA_WIDTH $TX_SAMPLE_WIDTH \
 ]
+
+set interpolation_rate 8
+ad_add_interpolation_filter "tx_fir_interpolator" $interpolation_rate \
+                  $TX_NUM_OF_CONVERTERS 2 {122.88} {15.36}
 
 adi_tpl_jesd204_tx_create tx_adrv9009_tpl_core $TX_NUM_OF_LANES \
                                                $TX_NUM_OF_CONVERTERS \
@@ -105,6 +111,10 @@ adi_tpl_jesd204_rx_create rx_adrv9009_tpl_core $RX_NUM_OF_LANES \
                                                $RX_NUM_OF_CONVERTERS \
                                                $RX_SAMPLES_PER_FRAME \
                                                $RX_SAMPLE_WIDTH
+
+set decimation_rate 8
+ad_add_decimation_filter "rx_fir_decimator" $decimation_rate \
+                  $RX_NUM_OF_CONVERTERS 1 {122.88} {122.88}
 
 ad_ip_instance axi_dmac axi_adrv9009_rx_dma
 ad_ip_parameter axi_adrv9009_rx_dma CONFIG.DMA_TYPE_SRC 2
@@ -226,10 +236,16 @@ ad_connect  axi_adrv9009_tx_jesd/tx_data tx_adrv9009_tpl_core/link
 ad_connect  axi_adrv9009_tx_clkgen/clk_0 util_adrv9009_tx_upack/clk
 ad_connect  adrv9009_tx_device_clk_rstgen/peripheral_reset util_adrv9009_tx_upack/reset
 
-ad_connect  tx_adrv9009_tpl_core/dac_valid_0 util_adrv9009_tx_upack/fifo_rd_en
+ad_connect  tx_fir_interpolator/valid_out_0 util_adrv9009_tx_upack/fifo_rd_en
+ad_connect tx_fir_interpolator/aclk axi_adrv9009_tx_clkgen/clk_0
 for {set i 0} {$i < $TX_NUM_OF_CONVERTERS} {incr i} {
-  ad_connect  util_adrv9009_tx_upack/fifo_rd_data_$i tx_adrv9009_tpl_core/dac_data_$i
-  ad_connect  tx_adrv9009_tpl_core/dac_enable_$i  util_adrv9009_tx_upack/enable_$i
+  ad_connect  tx_adrv9009_tpl_core/dac_enable_$i  tx_fir_interpolator/enable_dac_$i
+  ad_connect  tx_adrv9009_tpl_core/dac_valid_$i  tx_fir_interpolator/dac_valid_$i
+
+  ad_connect  util_adrv9009_tx_upack/fifo_rd_data_$i  tx_fir_interpolator/data_in_${i}
+  ad_connect  util_adrv9009_tx_upack/enable_$i  tx_fir_interpolator/enable_out_${i}
+
+  ad_connect  tx_fir_interpolator/data_out_${i}  tx_adrv9009_tpl_core/dac_data_$i
 }
 
 ad_connect  axi_adrv9009_tx_clkgen/clk_0 axi_adrv9009_dacfifo/dac_clk
