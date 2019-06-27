@@ -2,7 +2,7 @@
 
 module sys_id #(
   parameter ROM_WIDTH = 32,
-  parameter ROM_ADDR_BITS = 6 )(
+  parameter ROM_ADDR_BITS = 6)(
 
    //axi interface
   input           s_axi_aclk,
@@ -31,7 +31,7 @@ module sys_id #(
   input   [ROM_WIDTH-1:0]           pr_rom_data,
   output  [ROM_ADDR_BITS-1:0]       rom_addr);
 
-localparam          AXI_ADDRESS_WIDTH    = 8;
+localparam          AXI_ADDRESS_WIDTH    = 14;
 localparam  [31:0]  CORE_VERSION         = {16'h0001,     /* MAJOR */
                                               8'h00,      /* MINOR */
                                               8'h00};     /* PATCH */
@@ -41,11 +41,6 @@ reg                             up_wack = 'd0;
 reg   [31:0]                    up_rdata_s = 'd0;
 reg                             up_rack_s = 'd0;
 reg   [31:0]                    up_scratch = 'd0;
-reg   [ROM_WIDTH-1:0]           sys_id_rom_out = 'h0;
-reg   [ROM_ADDR_BITS-1:0]       sys_id_rom_addr = 'h0;
-reg   [ROM_ADDR_BITS-1:0]       up_sys_id_rom_addr = 'h0;
-reg                             rom_read_done = 'h0;
-reg                             rom_cs = 'h0;
 
 wire                            up_clk;
 wire                            up_rstn;
@@ -55,9 +50,14 @@ wire                            up_wreq_s;
 wire  [AXI_ADDRESS_WIDTH-1:0]   up_waddr_s;
 wire  [31:0]                    up_wdata_s;
 
+wire  [31:0]                    rom_data;
+
 assign up_clk = s_axi_aclk;
 assign up_rstn = s_axi_aresetn;
-assign rom_addr = sys_id_rom_addr;
+
+assign rom_addr = up_raddr_s;
+assign rom_data = (up_raddr_s [ROM_ADDR_BITS + 1'h1: ROM_ADDR_BITS] == 2'h1) ? sys_rom_data :
+                  (up_raddr_s [ROM_ADDR_BITS + 1'h1: ROM_ADDR_BITS] == 2'h2) ? pr_rom_data : 'h0;
 
 up_axi #(
   .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH))
@@ -103,15 +103,8 @@ always @(posedge up_clk) begin
         8'h01: up_rdata_s <= 0;
         8'h02: up_rdata_s <= up_scratch;
         8'h03: up_rdata_s <= CORE_MAGIC;
-        8'h21: begin
-          if (rom_cs) begin
-            up_rdata_s <= pr_rom_data;
-          end else begin
-            up_rdata_s <= sys_rom_data;
-          end
-        end
         default: begin
-          up_rdata_s <= 'h0;
+          up_rdata_s <= rom_data;
         end
       endcase
     end else begin
@@ -124,16 +117,11 @@ end
 always @(posedge up_clk) begin
   if (up_rstn == 1'b0) begin
     up_wack <= 'd0;
-    sys_id_rom_addr <= 'h0;
     up_scratch <= 'd0;
   end else begin
     up_wack <= up_wreq_s;
     if ((up_wreq_s == 1'b1) && (up_waddr_s == 8'h02)) begin
       up_scratch <= up_wdata_s;
-    end
-    if ((up_wreq_s == 1'b1) && (up_waddr_s == 8'h22)) begin
-      sys_id_rom_addr <= up_wdata_s;
-      rom_cs <= up_wdata_s [31];
     end
   end
 end

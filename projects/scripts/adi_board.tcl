@@ -790,14 +790,32 @@ proc ad_cpu_interrupt {p_ps_index p_mb_index p_name} {
 # the blocksize parameter.
 #
 # \param[str] - string input
-# \param[blocksize] - size of hex output
+# \param[blocksize] - size of hex output in bytes
 #
 # \return - hex
 #
 
 proc stringtohex {str blocksize} {
-  binary scan [format %-${blocksize}s $str] H* hex
-  return $hex
+  binary scan $str H* hex
+  return [format %0-[expr $blocksize * 2]s $hex]
+}
+
+## Generates the 8 bit checksum for the input hex string
+#
+# \param[hex] - string input
+#
+# \return - 8 bit checksum
+#
+
+proc checksum8bit {hex} {
+
+  set chks 0
+  for {set i 0} {$i < [string length $hex]} {incr i} {
+    if { ($i+1) % 2 == 0} {
+      set chks [expr $chks + "0x[string range $hex $i-1 $i]"]
+    }
+  }
+  return [format %0.2x [expr 255 - [expr "0x[string range [format %0.2x $chks] [expr [string length [format %0.2x $chks]] -2] [expr [string length [format %0.2x $chks]] -1]]"] +1]]
 }
 
 ## Generates a file used for initializing the system ROM.
@@ -807,39 +825,93 @@ proc stringtohex {str blocksize} {
 
 proc sysid_gen_sys_init_file {custom_string} {
 
+# git sha
+  set no_git_err "fatal: not a git repository"
+  if {[catch {exec git rev-parse HEAD} gitsha_string]} {
+    if [expr [string match *$no_git_err* $gitsha_string] == 1] {
+      set gitsha_string 0
+    }
+  }
+  set gitsha_hex [stringtohex $gitsha_string 40]
+
+#git clean
+  set git_clean_string "f"
+  if {$gitsha_string != 0} {
+    set git_status [exec git status .]
+      if [expr [string match *modified* $git_status] == 0] {
+        set git_clean_string "t"
+      }
+  }
+  set git_clean_hex [stringtohex $git_clean_string 4]
+
+# vadj check
+  set vadj_check_string "vadj"
+  set vadj_check_hex [stringtohex $vadj_check_string 4]
+
 # time and date
   set thetime [clock seconds]
-  set timedate_string "time_and_date:[clock format $thetime -format %H:%M:%S]_[clock format $thetime -format %D]"
-  set timedate_hex [stringtohex $thetime 64]
+  set timedate_hex [stringtohex $thetime 12]
+
+# merge components
+  set verh_hex {}
+  set verh_size 448
+
+  append verh_hex $gitsha_hex $git_clean_hex $vadj_check_hex $timedate_hex
+  set verh_hex [format %0-[expr [expr $verh_size - 2] * 8]s $verh_hex]
+  append verh_hex "00000000" [checksum8bit $verh_hex] "000000"
+
+# common header
+# size in lines
+  set table_size 16
+  set comh_size [expr 8 * $table_size]
+
+# set version
+  set comh_ver_hex "00000001"
 
 # getting project name hex
-  set projname_hex [stringtohex [current_project] 64]
+  set projname_hex [stringtohex [current_project] 32]
+
+# board name
+  set boardname_hex [stringtohex [current_board] 32]
 
 # custom string
   set custom_hex [stringtohex $custom_string 64]
 
-# git sha
-set no_git_err "fatal: not a git repository"
-if {[catch {exec git rev-parse HEAD} gitsha_string]} {
-	if [expr [string match *$no_git_err* $gitsha_string] == 1] {
-		set gitsha_string $no_git_err
-	}
-} 
-set gitsha_hex [stringtohex $gitsha_string 64]
+# pr offset
+  set pr_offset "deadbeef"
 
-# merge components
-  set mem_hex {}
-  append mem_hex $timedate_hex $projname_hex $custom_hex $gitsha_hex
+# init
+  set comh_hex {}
+  append comh_hex $comh_ver_hex
+
+  set offset [expr $table_size + $verh_size]
+  append comh_hex [format %08s [format %0.2x $offset]]
+
+  set offset [expr $offset + [expr [string length $projname_hex] / 8]]
+  append comh_hex [format %08s [format %0.2x $offset]]
+
+  set offset [expr $offset + [expr [string length $boardname_hex] / 8]]
+  append comh_hex [format %08s [format %0.2x $offset]]
+
+  set offset $pr_offset
+  append comh_hex [format %08s $offset]
+
+# pad header to match size and add checksum
+  set comh_hex [format %0-[expr [expr $table_size - 2] * 8]s $comh_hex]
+  append comh_hex "00000000" [checksum8bit $comh_hex] "000000"
 
 # creating file
+  set sys_mem_hex {}
+  append sys_mem_hex $comh_hex $verh_hex $projname_hex $boardname_hex $custom_hex
+
   set sys_mem_file [open "mem_init_sys.txt" "w"]
 
 # writting 32 bits to each line
-  for {set i 0} {$i < [string length $mem_hex]} {incr i} {
+  for {set i 0} {$i < [string length $sys_mem_hex]} {incr i} {
     if { ($i+1) % 8 == 0} {
-      puts $sys_mem_file [string index $mem_hex $i]
+      puts $sys_mem_file [string index $sys_mem_hex $i]
     } else {
-      puts -nonewline $sys_mem_file [string index $mem_hex $i]
+      puts -nonewline $sys_mem_file [string index $sys_mem_hex $i]
     }
   }
   close $sys_mem_file
