@@ -825,7 +825,7 @@ proc checksum8bit {hex} {
 
 proc sysid_gen_sys_init_file {custom_string} {
 
-# git sha
+  # git sha
   set no_git_err "fatal: not a git repository"
   if {[catch {exec git rev-parse HEAD} gitsha_string]} {
     if [expr [string match *$no_git_err* $gitsha_string] == 1] {
@@ -834,7 +834,7 @@ proc sysid_gen_sys_init_file {custom_string} {
   }
   set gitsha_hex [stringtohex $gitsha_string 40]
 
-#git clean
+  #git clean
   set git_clean_string "f"
   if {$gitsha_string != 0} {
     set git_status [exec git status .]
@@ -844,15 +844,15 @@ proc sysid_gen_sys_init_file {custom_string} {
   }
   set git_clean_hex [stringtohex $git_clean_string 4]
 
-# vadj check
+  # vadj check
   set vadj_check_string "vadj"
   set vadj_check_hex [stringtohex $vadj_check_string 4]
 
-# time and date
+  # time and date
   set thetime [clock seconds]
   set timedate_hex [stringtohex $thetime 12]
 
-# merge components
+  # merge components
   set verh_hex {}
   set verh_size 448
 
@@ -860,53 +860,62 @@ proc sysid_gen_sys_init_file {custom_string} {
   set verh_hex [format %0-[expr [expr $verh_size - 2] * 8]s $verh_hex]
   append verh_hex "00000000" [checksum8bit $verh_hex] "000000"
 
-# common header
-# size in lines
+  # common header
+  # size in lines
   set table_size 16
   set comh_size [expr 8 * $table_size]
 
-# set version
+  # set version
   set comh_ver_hex "00000001"
 
-# getting project name hex
+  # getting project name hex
   set projname_hex [stringtohex [current_project] 32]
 
-# board name
-  set boardname_hex [stringtohex [current_board] 32]
-
-# custom string
+  # board name
+  if {[catch {current_board} boardname_string]} {
+    if [expr [string match *ERROR* $boardname_string] == 1] {
+      set boardname_string 0
+    }
+  }
+  set boardname_hex [stringtohex $boardname_string 32]
+  
+  # custom string
   set custom_hex [stringtohex $custom_string 64]
 
-# pr offset
+  # pr offset
   set pr_offset "deadbeef"
 
-# init
+  # init - generate header 
   set comh_hex {}
   append comh_hex $comh_ver_hex
 
+  # offset for projname_hex
   set offset [expr $table_size + $verh_size]
   append comh_hex [format %08s [format %0.2x $offset]]
 
+  # offset for boardname_hex  
   set offset [expr $offset + [expr [string length $projname_hex] / 8]]
   append comh_hex [format %08s [format %0.2x $offset]]
 
+  # offset for custom_hex  
   set offset [expr $offset + [expr [string length $boardname_hex] / 8]]
   append comh_hex [format %08s [format %0.2x $offset]]
 
+  # offset for pr custom string
   set offset $pr_offset
   append comh_hex [format %08s $offset]
 
-# pad header to match size and add checksum
+  # pad header to match size and add checksum
   set comh_hex [format %0-[expr [expr $table_size - 2] * 8]s $comh_hex]
   append comh_hex "00000000" [checksum8bit $comh_hex] "000000"
 
-# creating file
+  # creating file
   set sys_mem_hex {}
   append sys_mem_hex $comh_hex $verh_hex $projname_hex $boardname_hex $custom_hex
 
   set sys_mem_file [open "mem_init_sys.txt" "w"]
 
-# writting 32 bits to each line
+  # writting 32 bits to each line
   for {set i 0} {$i < [string length $sys_mem_hex]} {incr i} {
     if { ($i+1) % 8 == 0} {
       puts $sys_mem_file [string index $sys_mem_hex $i]
@@ -926,10 +935,10 @@ proc sysid_gen_pr_init_file {custom_string} {
 
   set custom_hex [stringtohex $custom_string 64]
 
-# creating file
+  # creating file
   set pr_mem_file [open "mem_init_pr.txt" "w"]
 
-# writting 32 bits to each line
+  # writting 32 bits to each line
   for {set i 0} {$i < [string length $custom_hex]} {incr i} {
     if { ($i+1) % 8 == 0} {
       puts $pr_mem_file [string index $custom_hex $i]

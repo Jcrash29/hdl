@@ -50,17 +50,17 @@ wire                            up_wreq_s;
 wire  [AXI_ADDRESS_WIDTH-1:0]   up_waddr_s;
 wire  [31:0]                    up_wdata_s;
 
-wire  [31:0]                    rom_data;
+wire  [31:0]                    rom_data_s;
 
 assign up_clk = s_axi_aclk;
 assign up_rstn = s_axi_aresetn;
 
-assign rom_addr = up_raddr_s;
-assign rom_data = (up_raddr_s [ROM_ADDR_BITS + 1'h1: ROM_ADDR_BITS] == 2'h1) ? sys_rom_data :
+assign rom_addr = up_raddr_s [ROM_ADDR_BITS-1:0];
+assign rom_data_s = (up_raddr_s [ROM_ADDR_BITS + 1'h1: ROM_ADDR_BITS] == 2'h1) ? sys_rom_data :
                   (up_raddr_s [ROM_ADDR_BITS + 1'h1: ROM_ADDR_BITS] == 2'h2) ? pr_rom_data : 'h0;
 
 up_axi #(
-  .ADDRESS_WIDTH(AXI_ADDRESS_WIDTH))
+  .AXI_ADDRESS_WIDTH(AXI_ADDRESS_WIDTH))
 i_up_axi (
   .up_rstn (up_rstn),
   .up_clk (up_clk),
@@ -104,7 +104,7 @@ always @(posedge up_clk) begin
         8'h02: up_rdata_s <= up_scratch;
         8'h03: up_rdata_s <= CORE_MAGIC;
         default: begin
-          up_rdata_s <= rom_data;
+          up_rdata_s <= rom_data_s;
         end
       endcase
     end else begin
