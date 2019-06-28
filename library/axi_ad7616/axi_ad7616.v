@@ -96,7 +96,7 @@ module axi_ad7616 #(
   localparam      SERIAL = 0;
   localparam      PARALLEL = 1;
   localparam      NEG_EDGE = 1;
-  localparam      UP_ADDRESS_WIDTH = 14;
+  localparam      UP_ADDRESS_WIDTH = 16;
 
   // internal registers
 
@@ -432,7 +432,7 @@ module axi_ad7616 #(
   // up bus interface
 
   up_axi #(
-    .ADDRESS_WIDTH (UP_ADDRESS_WIDTH)
+    .AXI_ADDRESS_WIDTH (UP_ADDRESS_WIDTH)
   ) i_up_axi (
     .up_rstn (up_rstn),
     .up_clk (up_clk),

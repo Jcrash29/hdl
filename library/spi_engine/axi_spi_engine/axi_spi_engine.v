@@ -42,7 +42,7 @@ module axi_spi_engine #(
   parameter SDO_FIFO_ADDRESS_WIDTH = 5,
   parameter SDI_FIFO_ADDRESS_WIDTH = 5,
   parameter MM_IF_TYPE = 0,
-  parameter UP_ADDRESS_WIDTH = 14,
+  parameter UP_ADDRESS_WIDTH = 16,
   parameter ASYNC_SPI_CLK = 0,
   parameter NUM_OFFLOAD = 0,
   parameter OFFLOAD0_CMD_MEM_ADDRESS_WIDTH = 4,
@@ -184,7 +184,7 @@ module axi_spi_engine #(
     // interface wrapper
 
     up_axi #(
-      .ADDRESS_WIDTH (UP_ADDRESS_WIDTH)
+      .AXI_ADDRESS_WIDTH (UP_ADDRESS_WIDTH)
     ) i_up_axi (
       .up_rstn(rstn),
       .up_clk(clk),
