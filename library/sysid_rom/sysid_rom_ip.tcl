@@ -1,7 +1,7 @@
 # ip
 
 source ../scripts/adi_env.tcl
-source $ad_hdl_dir/library/scripts/adi_ip.tcl
+source $ad_hdl_dir/library/scripts/adi_ip_xilinx.tcl
 
 adi_ip_create sysid_rom
 adi_ip_files sysid_rom [list \
